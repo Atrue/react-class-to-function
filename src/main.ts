@@ -1,23 +1,10 @@
 import { tsquery } from "@phenomnomnominal/tsquery";
-import { promises as fs } from "fs";
 
-
-const print = (...args: any[]) => console.log(...args.reduce((r, a) => r.concat(a, "\n"), []));
+// const print = (...args: any[]) => console.log(...args.reduce((r, a) => r.concat(a, "\n"), []));
 
 const uppercaseFirst = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 const formatSetState = (value: string) => "set" + uppercaseFirst(value);
-
-const attempt = async () => {
-  const file = "./test/fixtures/In.tsx";
-
-  const ts = require("typescript");
-
-  const generatedFile = file.replace(".tsx", ".fp.tsx");
-  const rawCode = await fs.readFile(file, "utf-8");
-  const generatedCode = await main(ts, rawCode, file);
-  fs.writeFile(generatedFile, generatedCode);
-};
 
 export const main = async (ts: typeof import("typescript"), rawCode: string, fileName: string) => {
 
@@ -182,7 +169,7 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
   const classDeclarationNodes = tsquery<import("typescript").ClassDeclaration>(ast, "ClassDeclaration");
 
   const prepareComponent = (component: import("typescript").ClassDeclaration) => {
-    
+
     const typeNodes = tsquery<import("typescript").TypeReferenceNode>(component, "HeritageClause TypeReference");
 
     const interfaces = tsquery<import("typescript").InterfaceDeclaration>(ast, "InterfaceDeclaration");
@@ -496,7 +483,7 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
     const identifiers = tsquery(node, "Identifier[name=React] ~ Identifier[name=Component]", { visitAllChildren: true });
     return identifiers;
   }).map((node) => prepareComponent(node));
-  
+
 
   const namedImports = [];
   if (swappingNodes.some(({ states }) => states.length)) {
