@@ -17,12 +17,12 @@
 	"activationEvents": [
 		"onCommand:react-class-to-functional.transform"
 	],
-	"main": "./dist/extension.js",
+	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
 			{
 				"command": "react-class-to-functional.transform",
-				"title": "Transform"
+				"title": "React Class to FC"
 			}
 		]
 	},
