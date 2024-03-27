@@ -271,13 +271,23 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
               factory.createIdentifier(node.name.getText()),
               undefined,
               undefined,
-              factory.createArrowFunction(
+              factory.createCallExpression(
+                factory.createIdentifier("useCallback"),
                 undefined,
-                undefined,
-                (node.initializer as ts.ArrowFunction).parameters,
-                undefined,
-                factory.createToken(SyntaxKind.EqualsGreaterThanToken),
-                (node.initializer as ts.ArrowFunction).body!
+                [
+                  factory.createArrowFunction(
+                    undefined,
+                    undefined,
+                    (node.initializer as ts.ArrowFunction).parameters,
+                    undefined,
+                    factory.createToken(SyntaxKind.EqualsGreaterThanToken),
+                    (node.initializer as ts.ArrowFunction).body!
+                  ),
+                  factory.createArrayLiteralExpression(
+                    [],
+                    false
+                  )
+                ]
               )
             )],
             ts.NodeFlags.Const
@@ -420,13 +430,23 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
             factory.createIdentifier(node.name.getText()),
             undefined,
             undefined,
-            factory.createArrowFunction(
+            factory.createCallExpression(
+              factory.createIdentifier("useCallback"),
               undefined,
-              undefined,
-              node.parameters,
-              undefined,
-              factory.createToken(SyntaxKind.EqualsGreaterThanToken),
-              node.body!
+              [
+                factory.createArrowFunction(
+                  undefined,
+                  undefined,
+                  node.parameters,
+                  undefined,
+                  factory.createToken(SyntaxKind.EqualsGreaterThanToken),
+                  node.body!
+                ),
+                factory.createArrayLiteralExpression(
+                  [],
+                  false
+                )
+              ]
             )
           )],
           ts.NodeFlags.Const
@@ -475,7 +495,7 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
       removeNode(stateInterface);
     }
 
-    return { functionalComponent, effects, states, refs, classComponent: component };
+    return { functionalComponent, effects, states, refs, functions, classComponent: component };
   };
   const swappingNodes = classDeclarationNodes.filter(node => {
     if (!node.heritageClauses) {
@@ -500,6 +520,14 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
       false,
       undefined,
       factory.createIdentifier("useEffect")
+    ));
+  }
+
+  if (swappingNodes.some(({ functions }) => functions.length)) {
+    namedImports.push(factory.createImportSpecifier(
+      false,
+      undefined,
+      factory.createIdentifier("useCallback")
     ));
   }
 
