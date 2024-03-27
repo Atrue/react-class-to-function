@@ -1,3 +1,4 @@
+import * as ts from "typescript";
 import { tsquery } from "@phenomnomnominal/tsquery";
 
 // const print = (...args: any[]) => console.log(...args.reduce((r, a) => r.concat(a, "\n"), []));
@@ -14,7 +15,7 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
   const printer = createPrinter({ newLine: NewLineKind.LineFeed });
 
 
-  const removeNode = (node: import("typescript").Node) => {
+  const removeNode = (node: ts.Node) => {
     for (let key in node.parent) {
       if (!["statements", "declarations", "elements", "declarationList", "arguments",].includes(key) || !Array.isArray((node.parent as any)[key])) {
         continue;
@@ -38,15 +39,15 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
     }
   };
 
-  const printNode = (node: import("typescript").Node) => printer.printNode(EmitHint.Unspecified, node, resultFile);
+  const printNode = (node: ts.Node) => printer.printNode(EmitHint.Unspecified, node, resultFile);
 
   interface UseEffectOptions {
-    watchables?: import("typescript").ArrayLiteralExpression;
-    cleanup?: import("typescript").Block;
+    watchables?: ts.ArrayLiteralExpression;
+    cleanup?: ts.Block;
   }
 
-  const createUseEffectCall = (body: import("typescript").Block, { watchables, cleanup }: UseEffectOptions) => {
-    const block: import("typescript").Block = body;
+  const createUseEffectCall = (body: ts.Block, { watchables, cleanup }: UseEffectOptions) => {
+    const block: ts.Block = body;
 
     if (cleanup) {
       (block.statements as any).push(factory.createReturnStatement(factory.createArrowFunction(
@@ -62,7 +63,7 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
       )));
     }
 
-    const params: (import("typescript").ArrowFunction | import("typescript").ArrayLiteralExpression)[] = [
+    const params: (ts.ArrowFunction | ts.ArrayLiteralExpression)[] = [
       factory.createArrowFunction(
         undefined,
         undefined,
@@ -82,15 +83,15 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
     ));
   };
 
-  const clearAttribute = (target: import("typescript").Node, attribute: "props" | "state") => {
-    const thisAttributeExpressions = tsquery<import("typescript").ThisExpression>(target, `PropertyAccessExpression > ThisKeyword ~ Identifier[name=${attribute}]`);
+  const clearAttribute = (target: ts.Node, attribute: "props" | "state") => {
+    const thisAttributeExpressions = tsquery<ts.ThisExpression>(target, `PropertyAccessExpression > ThisKeyword ~ Identifier[name=${attribute}]`);
     thisAttributeExpressions.forEach((expression) => {
       let parent = expression.parent;
       while (parent.parent.kind === SyntaxKind.PropertyAccessExpression) {
         parent = parent.parent;
       }
 
-      const newNode = (parse(printNode(parent).replace(`this.${attribute}.`, "")).statements[0] as import("typescript").ExpressionStatement).expression;
+      const newNode = (parse(printNode(parent).replace(`this.${attribute}.`, "")).statements[0] as ts.ExpressionStatement).expression;
       // print(printNode(parent.parent), SyntaxKind[parent.parent.kind], printNode(newNode), SyntaxKind[newNode.kind]);
       switch (parent.parent.kind) {
         case SyntaxKind.IfStatement:
@@ -113,12 +114,12 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
     });
   };
 
-  const clearPropsAttribute = (target: import("typescript").Node) => clearAttribute(target, "props");
-  const clearStateAttribute = (target: import("typescript").Node) => clearAttribute(target, "state");
+  const clearPropsAttribute = (target: ts.Node) => clearAttribute(target, "props");
+  const clearStateAttribute = (target: ts.Node) => clearAttribute(target, "state");
 
-  const createFunctionalComponent = (component: import("typescript").ClassDeclaration, bodyItems: (import("typescript").ExpressionStatement | import("typescript").VariableStatement)[], props: import("typescript").ParameterDeclaration) => {
+  const createFunctionalComponent = (component: ts.ClassDeclaration, bodyItems: (ts.ExpressionStatement | ts.VariableStatement)[], props: ts.ParameterDeclaration) => {
 
-    const [renderMethodNode] = tsquery<import("typescript").Identifier>(component, "MethodDeclaration > Identifier[name=render]");
+    const [renderMethodNode] = tsquery<ts.Identifier>(component, "MethodDeclaration > Identifier[name=render]");
 
     return factory.createVariableStatement(
       undefined,
@@ -136,7 +137,7 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
 
             factory.createBlock([
               ...bodyItems,
-              ...(renderMethodNode.parent as import("typescript").MethodDeclaration).body?.statements!,
+              ...(renderMethodNode.parent as ts.MethodDeclaration).body?.statements!,
             ],
               true
             )
@@ -166,34 +167,34 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
   // https://github.com/phenomnomnominal/tsquery
   const ast = tsquery.ast(rawCode, fileName, ScriptKind.TSX);
 
-  const classDeclarationNodes = tsquery<import("typescript").ClassDeclaration>(ast, "ClassDeclaration");
+  const classDeclarationNodes = tsquery<ts.ClassDeclaration>(ast, "ClassDeclaration");
 
-  const prepareComponent = (component: import("typescript").ClassDeclaration) => {
+  const prepareComponent = (component: ts.ClassDeclaration) => {
 
-    const typeNodes = tsquery<import("typescript").TypeReferenceNode>(component, "HeritageClause TypeReference");
+    const typeNodes = tsquery<ts.TypeReferenceNode>(component, "HeritageClause TypeReference");
 
-    const interfaces = tsquery<import("typescript").InterfaceDeclaration>(ast, "InterfaceDeclaration");
+    const interfaces = tsquery<ts.InterfaceDeclaration>(ast, "InterfaceDeclaration");
 
-    const propsNodes = tsquery<import("typescript").Identifier>(component, "PropertyAccessExpression > ThisKeyword ~ Identifier[name=props]", { visitAllChildren: true });
+    const propsNodes = tsquery<ts.Identifier>(component, "PropertyAccessExpression > ThisKeyword ~ Identifier[name=props]", { visitAllChildren: true });
 
-    const stateNodes = tsquery<import("typescript").Identifier>(component, "PropertyAccessExpression > ThisKeyword ~ Identifier[name=state]", { visitAllChildren: true });
+    const stateNodes = tsquery<ts.Identifier>(component, "PropertyAccessExpression > ThisKeyword ~ Identifier[name=state]", { visitAllChildren: true });
 
-    const mergedPropsNodes = propsNodes.map(node => ((node.parent.parent as import("typescript").VariableDeclaration).name as import("typescript").ObjectBindingPattern).elements || [factory.createBindingElement(
+    const mergedPropsNodes = propsNodes.map(node => ((node.parent.parent as ts.VariableDeclaration).name as ts.ObjectBindingPattern).elements || [factory.createBindingElement(
       undefined,
       undefined,
-      factory.createIdentifier((node.parent.parent as import("typescript").VariableDeclaration).name.getText()),
+      factory.createIdentifier((node.parent.parent as ts.VariableDeclaration).name.getText()),
       undefined
     )]).flat();
 
-    const mergedStateNodes = stateNodes.filter(node => node.parent.parent.kind === SyntaxKind.VariableDeclaration).map(node => ((node.parent.parent as import("typescript").VariableDeclaration).name as import("typescript").ObjectBindingPattern).elements || [factory.createBindingElement(
+    const mergedStateNodes = stateNodes.filter(node => node.parent.parent.kind === SyntaxKind.VariableDeclaration).map(node => ((node.parent.parent as ts.VariableDeclaration).name as ts.ObjectBindingPattern).elements || [factory.createBindingElement(
       undefined,
       undefined,
-      factory.createIdentifier((node.parent.parent as import("typescript").VariableDeclaration).name.getText()),
+      factory.createIdentifier((node.parent.parent as ts.VariableDeclaration).name.getText()),
       undefined
     )]).flat();
 
-    const [componentDidMountNode] = tsquery<import("typescript").Identifier>(component, "MethodDeclaration > Identifier[name=componentDidMount]", { visitAllChildren: true });
-    const effects: import("typescript").ExpressionStatement[] = [];
+    const [componentDidMountNode] = tsquery<ts.Identifier>(component, "MethodDeclaration > Identifier[name=componentDidMount]", { visitAllChildren: true });
+    const effects: ts.ExpressionStatement[] = [];
 
     if (componentDidMountNode) {
       const options: UseEffectOptions = {
@@ -203,25 +204,25 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
         )
       };
 
-      const [componentWillUnmountNode] = tsquery<import("typescript").Identifier>(component, "MethodDeclaration > Identifier[name=componentWillUnmount]");
+      const [componentWillUnmountNode] = tsquery<ts.Identifier>(component, "MethodDeclaration > Identifier[name=componentWillUnmount]");
 
       if (componentWillUnmountNode) {
-        options.cleanup = (componentWillUnmountNode.parent as import("typescript").MethodDeclaration).body!;
+        options.cleanup = (componentWillUnmountNode.parent as ts.MethodDeclaration).body!;
       }
 
-      const useEffectCall = createUseEffectCall((componentDidMountNode.parent as import("typescript").MethodDeclaration).body!, options);
+      const useEffectCall = createUseEffectCall((componentDidMountNode.parent as ts.MethodDeclaration).body!, options);
 
       effects.push(useEffectCall);
     }
 
-    const [componentDidUpdateNode] = tsquery<import("typescript").Identifier>(component, "MethodDeclaration > Identifier[name=componentDidUpdate]");
+    const [componentDidUpdateNode] = tsquery<ts.Identifier>(component, "MethodDeclaration > Identifier[name=componentDidUpdate]");
     if (componentDidUpdateNode) {
 
-      const componentDidUpdateMethod = componentDidUpdateNode.parent as import("typescript").MethodDeclaration;
-      const conditionExpressionNodes = tsquery<import("typescript").IfStatement>(componentDidUpdateMethod, "IfStatement");
+      const componentDidUpdateMethod = componentDidUpdateNode.parent as ts.MethodDeclaration;
+      const conditionExpressionNodes = tsquery<ts.IfStatement>(componentDidUpdateMethod, "IfStatement");
 
 
-      type CollectableExpressions = import("typescript").Identifier | import("typescript").PropertyAccessExpression | import("typescript").BinaryExpression;
+      type CollectableExpressions = ts.Identifier | ts.PropertyAccessExpression | ts.BinaryExpression;
 
       const collectProperties = (node: CollectableExpressions): string[] => {
         if (node.kind === SyntaxKind.BinaryExpression) {
@@ -244,7 +245,7 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
           return factory.createIdentifier(item);
         });
 
-        const useEffectCall = createUseEffectCall(ifStatement.thenStatement as import("typescript").Block, {
+        const useEffectCall = createUseEffectCall(ifStatement.thenStatement as ts.Block, {
           watchables: factory.createArrayLiteralExpression(
             watchableProperties,
             false
@@ -255,13 +256,13 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
       });
     }
 
-    const propertyDeclarationNodes = tsquery<import("typescript").PropertyDeclaration>(component, "PropertyDeclaration");
-    const functions: import("typescript").VariableStatement[] = [];
-    const refs: import("typescript").VariableStatement[] = [];
+    const propertyDeclarationNodes = tsquery<ts.PropertyDeclaration>(component, "PropertyDeclaration");
+    const functions: ts.VariableStatement[] = [];
+    const refs: ts.VariableStatement[] = [];
 
-    propertyDeclarationNodes.filter(node => node.type ? (typeNodes[1] ? (node.type as import("typescript").TypeReferenceNode).typeName.getText() !== typeNodes[1].typeName.getText() : true) : true).forEach(node => {
+    propertyDeclarationNodes.filter(node => node.type ? (typeNodes[1] ? (node.type as ts.TypeReferenceNode).typeName.getText() !== typeNodes[1].typeName.getText() : true) : true).forEach(node => {
       if (node.initializer?.kind === SyntaxKind.ArrowFunction) {
-        tsquery<import("typescript").Identifier>(node, "PropertyAccessExpression > ThisKeyword ~ Identifier[name=props]", { visitAllChildren: true }).forEach(identifier => removeNode(identifier.parent.parent.parent));
+        tsquery<ts.Identifier>(node, "PropertyAccessExpression > ThisKeyword ~ Identifier[name=props]", { visitAllChildren: true }).forEach(identifier => removeNode(identifier.parent.parent.parent));
 
         const variableStatement = factory.createVariableStatement(
           undefined,
@@ -273,10 +274,10 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
               factory.createArrowFunction(
                 undefined,
                 undefined,
-                (node.initializer as import("typescript").ArrowFunction).parameters,
+                (node.initializer as ts.ArrowFunction).parameters,
                 undefined,
                 factory.createToken(SyntaxKind.EqualsGreaterThanToken),
-                (node.initializer as import("typescript").ArrowFunction).body!
+                (node.initializer as ts.ArrowFunction).body!
               )
             )],
             ts.NodeFlags.Const
@@ -293,7 +294,7 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
               undefined,
               factory.createCallExpression(
                 factory.createIdentifier("useRef"),
-                (node.type as import("typescript").TypeReferenceNode)?.typeArguments,
+                (node.type as ts.TypeReferenceNode)?.typeArguments,
                 []
               )
             )],
@@ -306,12 +307,12 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
     const stateInterface = interfaces.find(node => node.name.getText() === typeNodes[1].typeName.getText());
 
     const [stateDeclaration] = tsquery(component, "PropertyDeclaration > Identifier[name=state]");
-    let states: import("typescript").VariableStatement[] = [];
+    let states: ts.VariableStatement[] = [];
 
     if (stateDeclaration) {
-      const propertyDeclaration = stateDeclaration.parent as import("typescript").PropertyDeclaration;
-      states = (propertyDeclaration.initializer as import("typescript").ObjectLiteralExpression)?.properties.map((node) => {
-        const member = (stateInterface?.members.find(member => member.name?.getText() === node.name?.getText()) as import("typescript").PropertySignature);
+      const propertyDeclaration = stateDeclaration.parent as ts.PropertyDeclaration;
+      states = (propertyDeclaration.initializer as ts.ObjectLiteralExpression)?.properties.map((node) => {
+        const member = (stateInterface?.members.find(member => member.name?.getText() === node.name?.getText()) as ts.PropertySignature);
 
         return factory.createVariableStatement(
           undefined,
@@ -342,7 +343,7 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
                   ])
                 ] :
                   undefined,
-                [(node as import("typescript").PropertyAssignment).initializer!]
+                [(node as ts.PropertyAssignment).initializer!]
               )
             )],
             ts.NodeFlags.Const
@@ -351,23 +352,23 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
 
       });
 
-      const setStateIdentifiers = tsquery<import("typescript").Identifier>(component, "CallExpression > PropertyAccessExpression > ThisKeyword ~ Identifier[name=setState]");
+      const setStateIdentifiers = tsquery<ts.Identifier>(component, "CallExpression > PropertyAccessExpression > ThisKeyword ~ Identifier[name=setState]");
       setStateIdentifiers.forEach(identifier => {
-        const callExpression = (identifier.parent.parent as import("typescript").CallExpression);
-        const setters = (callExpression.arguments[0] as import("typescript").ObjectLiteralExpression).properties.map(property => factory.createExpressionStatement(factory.createCallExpression(
+        const callExpression = (identifier.parent.parent as ts.CallExpression);
+        const setters = (callExpression.arguments[0] as ts.ObjectLiteralExpression).properties.map(property => factory.createExpressionStatement(factory.createCallExpression(
           factory.createIdentifier(formatSetState(property.name!.getText())),
           undefined,
-          (property as import("typescript").PropertyAssignment).initializer ? [(property as import("typescript").PropertyAssignment).initializer] : undefined,
+          (property as ts.PropertyAssignment).initializer ? [(property as ts.PropertyAssignment).initializer] : undefined,
         )));
-        (callExpression as any).parent.parent.statements.splice((callExpression.parent.parent as import("typescript").Block).statements.indexOf(callExpression.parent as import("typescript").Block), 1, ...setters);
+        (callExpression as any).parent.parent.statements.splice((callExpression.parent.parent as ts.Block).statements.indexOf(callExpression.parent as ts.Block), 1, ...setters);
       });
 
       mergedStateNodes.forEach(node => {
-        if ((propertyDeclaration.initializer as import("typescript").ObjectLiteralExpression)?.properties.find(property => node.name.getText() === property.name?.getText())) {
+        if ((propertyDeclaration.initializer as ts.ObjectLiteralExpression)?.properties.find(property => node.name.getText() === property.name?.getText())) {
           return;
         }
 
-        const member = (stateInterface?.members.find(member => member.name?.getText() === node.name?.getText()) as import("typescript").PropertySignature);
+        const member = (stateInterface?.members.find(member => member.name?.getText() === node.name?.getText()) as ts.PropertySignature);
 
         states.push(factory.createVariableStatement(
           undefined,
@@ -407,10 +408,10 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
       });
     }
 
-    const methodDeclarationNodes = tsquery<import("typescript").MethodDeclaration>(component, "MethodDeclaration");
+    const methodDeclarationNodes = tsquery<ts.MethodDeclaration>(component, "MethodDeclaration");
     methodDeclarationNodes.filter(node => !["render", "componentDidUpdate", "componentDidMount", "componentWillUnmount"].includes(node.name.getText())).forEach(node => {
 
-      tsquery<import("typescript").Identifier>(node, "PropertyAccessExpression > ThisKeyword ~ Identifier[name=props]", { visitAllChildren: true }).forEach(identifier => removeNode(identifier.parent.parent.parent));
+      tsquery<ts.Identifier>(node, "PropertyAccessExpression > ThisKeyword ~ Identifier[name=props]", { visitAllChildren: true }).forEach(identifier => removeNode(identifier.parent.parent.parent));
 
       const variableStatement = factory.createVariableStatement(
         undefined,
@@ -434,21 +435,21 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
       functions.push(variableStatement);
     });
 
-    tsquery<import("typescript").Identifier>(component, "PropertyAccessExpression > ThisKeyword ~ Identifier[name=props]", { visitAllChildren: true }).forEach(identifier => removeNode(identifier.parent.parent.parent.parent));
-    tsquery<import("typescript").Identifier>(component, "PropertyAccessExpression > ThisKeyword ~ Identifier[name=state]", { visitAllChildren: true }).forEach(identifier => removeNode(identifier.parent.parent.parent.parent));
+    tsquery<ts.Identifier>(component, "PropertyAccessExpression > ThisKeyword ~ Identifier[name=props]", { visitAllChildren: true }).forEach(identifier => removeNode(identifier.parent.parent.parent.parent));
+    tsquery<ts.Identifier>(component, "PropertyAccessExpression > ThisKeyword ~ Identifier[name=state]", { visitAllChildren: true }).forEach(identifier => removeNode(identifier.parent.parent.parent.parent));
 
     clearPropsAttribute(component);
 
 
-    const thisExpressions = tsquery<import("typescript").ThisExpression>(component, "ThisKeyword");
+    const thisExpressions = tsquery<ts.ThisExpression>(component, "ThisKeyword");
     thisExpressions.forEach((expression) => {
       (expression.parent.parent as any).expression = (expression.parent as any).name;
     });
 
-    const functionProps: import("typescript").BindingElement[] = [];
+    const functionProps: ts.BindingElement[] = [];
     const functionPropsNames: Set<string> = new Set();
     mergedPropsNodes.forEach(node => {
-      const name = (node.name as import("typescript").Identifier).escapedText.toString().trim();
+      const name = (node.name as ts.Identifier).escapedText.toString().trim();
 
       if (functionPropsNames.has(name)) {
         return;
@@ -522,8 +523,8 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
     undefined
   );
 
-  const [reactImportLiteral] = tsquery<import("typescript").StringLiteral>(ast, "ImportDeclaration StringLiteral[text=react]");
-  (reactImportLiteral.parent.parent as any).statements.splice((reactImportLiteral.parent.parent as import("typescript").SourceFile).statements.indexOf((reactImportLiteral.parent as import("typescript").ImportDeclaration)), 1, reactImports);
+  const [reactImportLiteral] = tsquery<ts.StringLiteral>(ast, "ImportDeclaration StringLiteral[text=react]");
+  (reactImportLiteral.parent.parent as any).statements.splice((reactImportLiteral.parent.parent as ts.SourceFile).statements.indexOf((reactImportLiteral.parent as ts.ImportDeclaration)), 1, reactImports);
 
   let updatedSourceFile = ast;
 
