@@ -336,7 +336,7 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
               undefined,
               factory.createCallExpression(
                 factory.createIdentifier("useState"),
-                member.questionToken ? [
+                member?.questionToken ? [
                   factory.createUnionTypeNode([
                     member?.type!,
                     factory.createKeywordTypeNode(SyntaxKind.UndefinedKeyword)
@@ -392,7 +392,7 @@ export const main = async (ts: typeof import("typescript"), rawCode: string, fil
               undefined,
               factory.createCallExpression(
                 factory.createIdentifier("useState"),
-                member.questionToken ? [
+                member?.questionToken ? [
                   factory.createUnionTypeNode([
                     member?.type!,
                     factory.createKeywordTypeNode(SyntaxKind.UndefinedKeyword)
